@@ -1581,6 +1581,7 @@ class DeepNeuralNettworkMultiThreaded(threading.Thread):
         self.verbose=Verbose
         self.ShowLoss=ShowLoss
         self.SyncLoss=SyncLoss
+        self.send_end=send_end
         self.ThreadNetId='ToBeChanged'
     
         
@@ -1604,8 +1605,9 @@ class DeepNeuralNettworkMultiThreaded(threading.Thread):
         self.fit(self.X_train, self.y_train, self.Epochs,self.LRate,self.verbose,self.ShowLoss)
         #self.print_time(self.Name, self.Counter, 3)
         # Free lock to release next thread
+        Predict=self.predict(self, X_test)
         #ThreadLock.release()
-        send_end.send('self.LockId')
+        self.send_end.send(Predict)
         return
 
     def sigmoid(self, Z):
@@ -1961,7 +1963,7 @@ def SquareNumber(ProcessId,Dummy1,Dummy2,send_end):
 
 class DeepNeuralNettworkMultiProcesses():
           
-    def __init__(self, Architecture,InitBias, InitWeight,ThreadID, Name, LockId,Flag,X_train,y_train,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end):
+    def __init__(self, Architecture,InitBias, InitWeight,ThreadID, Name, LockId,Flag,X_train,y_train,X_test,y_test,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end):
         self.Architecture = Architecture
         self.Bias = InitBias
         self.InitWeight = InitWeight
@@ -1971,6 +1973,7 @@ class DeepNeuralNettworkMultiProcesses():
         self.FlagId = Flag
         self.X_train=X_train
         self.y_train=y_train
+        self.X_test=X_test
         self.Epochs=Epochs
         self.LRate=LRate
         self.verbose=Verbose
@@ -2002,8 +2005,9 @@ class DeepNeuralNettworkMultiProcesses():
         self.fit(self.X_train, self.y_train, self.Epochs,self.LRate,self.verbose,self.ShowLoss)
         #self.print_time(self.Name, self.Counter, 3)
         # Free lock to release next thread
+        Predict=self.predict(self.X_test)
         #ThreadLock.release()
-        self.send_end.send(self.LockId)
+        self.send_end.send(Predict)
         return
 
     def sigmoid(self, Z):
@@ -2273,6 +2277,15 @@ class DeepNeuralNettworkMultiProcesses():
         #plt.show()
         return 
 
+    def accuracy(self, X,y):
+        print('Prediction') 
+        yhat, _ = self._forward(X)
+        accuracy = np.sum(y[0]==yhat[0])/(yhat.shape[1])
+        print('Accuracy:{:1}'.format(accuracy)) 
+        return accuracy
+       
+        
+
     def predict(self, X):
         print('test')
         yhat, _ = self._forward(X)
@@ -2327,7 +2340,7 @@ def TestParallelProcessOfNetwork(NNTestNumber,LRate,Epochs,NumbNets):
     ShowLoss=True
     SyncLoss=False
     
-    Epochs=20000   
+    Epochs=2000   
     
     Processes=[]
     pipe_list = []
@@ -2338,7 +2351,7 @@ def TestParallelProcessOfNetwork(NNTestNumber,LRate,Epochs,NumbNets):
         Name=Name+str(i)
         #Epochs +=2000
         #LRate=LRate+0.001
-        List=[NN_ARCHITECTURE,InitBias,InitWeight,i,Name,i,Flag, X_train, y_train,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end]
+        List=[NN_ARCHITECTURE,InitBias,InitWeight,i,Name,i,Flag, X_train, y_train,X_test, y_test,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end]
         p=Process(target=DeepNeuralNettworkMultiProcesses,args=List)
         #p=Process(target=SquareNumber,args=(i,2,3,send_end))
         #p=Process(target=SquareNumber,args)
@@ -2421,17 +2434,17 @@ def TestParallelThreadsOfNetwork(NNTestNumber,LRate,Epochs,NumbNets):
     ShowLoss=True
     SyncLoss=False
     
-    Epochs=20000   
+    Epochs=2000   
     
     Threads=[]
     pipe_list = []
-    for i in range(NumberOfProcesses):
+    for i in range(NumberOfThreads):
         recv_end, send_end = Pipe(False)
         InitBias=InitBias+0.02
         Name=Name+str(i)
         #Epochs +=2000
         #LRate=LRate+0.001
-        List=[NN_ARCHITECTURE,InitBias,InitWeight,i,Name,i,Flag, X_train, y_train,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end]
+        List=[NN_ARCHITECTURE,InitBias,InitWeight,i,Name,i,Flag, X_train, y_train,X_test, y_test,Epochs,LRate,Verbose,ShowLoss,SyncLoss,send_end]
         p=Thread(target=DeepNeuralNettworkMultiProcesses,args=List)
         #p=Process(target=SquareNumber,args=(i,2,3,send_end))
         #p=Process(target=SquareNumber,args)
@@ -2663,8 +2676,12 @@ def TestDeepNeuralNetwork():
     
     
     #Testing processes with different "meta" parameters
-    TestMultiThreadedNerworks(1,0.0003,8001,1)
+    #TestMultiThreadedNerworks(1,0.0003,8001,1)
+    
+    TestParallelThreadsOfNetwork(1,0.0003,8001,1)
     #TestParallelProcessOfNetwork(1,0.0003,8001,1)
+
+    return
     
   
 
